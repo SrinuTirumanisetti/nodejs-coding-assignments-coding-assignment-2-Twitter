@@ -28,6 +28,27 @@ const InitializeDBAndServer = async () => {
 
 InitializeDBAndServer();
 
+const authenticateToken = (request, response, next) => {
+  let jwtToken;
+  const authHeader = request.headers["authorization"];
+  if (authHeader !== undefined) {
+    jwtToken = authHeader.split(" ")[1];
+  }
+  if (jwtToken === undefined) {
+    response.status(401);
+    response.send("Invalid Access Token");
+  } else {
+    jwt.verify(jwtToken, "MY_SECRET_TOKEN", async (error, payload) => {
+      if (error) {
+        response.send("Invalid Access Token");
+      } else {
+        request.username = payload.username;
+        next();
+      }
+    });
+  }
+};
+
 app.post("/register", async (request, response) => {
   const { username, password, name, gender } = request.body;
 
@@ -50,6 +71,28 @@ app.post("/register", async (request, response) => {
 
       response.status(200);
       response.send("User created successfully");
+    }
+  }
+});
+
+app.post("/login/", async (request, response) => {
+  const { username, password } = request.body;
+  const selectUserQuery = `SELECT * FROM user WHERE username = '${username}'`;
+  const dbUser = await db.get(selectUserQuery);
+  if (dbUser === undefined) {
+    response.status(400);
+    response.send("Invalid user");
+  } else {
+    const isPasswordMatched = await bcrypt.compare(password, dbUser.password);
+    if (isPasswordMatched === true) {
+      const payload = {
+        username: username,
+      };
+      const jwtToken = jwt.sign(payload, "MY_SECRET_TOKEN");
+      response.send({ jwtToken });
+    } else {
+      response.status(400);
+      response.send("Invalid password");
     }
   }
 });
