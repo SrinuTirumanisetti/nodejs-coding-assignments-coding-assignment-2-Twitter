@@ -15,7 +15,7 @@ const InitializeDBAndServer = async () => {
   try {
     db = await open({
       filename: dbPath,
-      driver: sqlite3.database,
+      driver: sqlite3.Database,
     });
     app.listen(3000, () => {
       console.log(`server is running on http://localhost:3000`);
@@ -38,7 +38,7 @@ const authenticateToken = (request, response, next) => {
     response.status(401);
     response.send("Invalid Access Token");
   } else {
-    jwt.verify(jwtToken, "MY_SECRET_TOKEN", async (error, payload) => {
+    jwt.verify(jwtToken, "srinutiru", async (error, payload) => {
       if (error) {
         response.send("Invalid Access Token");
       } else {
@@ -88,11 +88,36 @@ app.post("/login/", async (request, response) => {
       const payload = {
         username: username,
       };
-      const jwtToken = jwt.sign(payload, "MY_SECRET_TOKEN");
+      const jwtToken = jwt.sign(payload, "srinutiru");
       response.send({ jwtToken });
     } else {
       response.status(400);
       response.send("Invalid password");
     }
   }
+});
+
+app.get("/user/tweets/feed/", authenticateToken, async (request, response) => {
+  const { username } = request;
+  const getUserIdQuery = `SELECT user_id FROM user WHERE username = ?;`;
+  const user = await db.get(getUserIdQuery, [username]);
+  const userId = user.user_id;
+
+  const getFeedQuery = `
+    SELECT 
+      user.username,
+      tweet.tweet,
+      tweet.date_time AS dateTime
+    FROM 
+      follower
+      INNER JOIN tweet ON follower.following_user_id = tweet.user_id
+      INNER JOIN user ON user.user_id = tweet.user_id
+    WHERE 
+      follower.follower_user_id = ?
+    ORDER BY 
+      tweet.date_time DESC
+    LIMIT 4;
+  `;
+  const feed = await db.all(getFeedQuery, [userId]);
+  response.send(feed);
 });
