@@ -121,3 +121,21 @@ app.get("/user/tweets/feed/", authenticateToken, async (request, response) => {
   const feed = await db.all(getFeedQuery, [userId]);
   response.send(feed);
 });
+
+app.get("/user/following/", authenticateToken, async (request, response) => {
+  const { username } = request;
+  const getUserIdQuery = `select * from user where username = ?;`;
+  const dbUser = await db.get(getUserIdQuery, [username]);
+  const { userId } = dbUser.user_id;
+  const getFollowingQuery = `
+            SELECT 
+            user.name
+            FROM 
+            follower
+            INNER JOIN user ON follower.following_user_id = user.user_id
+            WHERE 
+            follower.follower_user_id = ?;
+        `;
+  const followingList = await db.all(getFollowingQuery, [userId]);
+  response.send(followingList);
+});
