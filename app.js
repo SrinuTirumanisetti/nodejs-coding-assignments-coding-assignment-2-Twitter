@@ -124,18 +124,41 @@ app.get("/user/tweets/feed/", authenticateToken, async (request, response) => {
 
 app.get("/user/following/", authenticateToken, async (request, response) => {
   const { username } = request;
-  const getUserIdQuery = `select * from user where username = ?;`;
+  const getUserIdQuery = `SELECT * FROM user WHERE username = ?;`;
   const dbUser = await db.get(getUserIdQuery, [username]);
-  const { userId } = dbUser.user_id;
+  const userId = dbUser.user_id;
   const getFollowingQuery = `
-            SELECT 
-            user.name
-            FROM 
-            follower
-            INNER JOIN user ON follower.following_user_id = user.user_id
-            WHERE 
-            follower.follower_user_id = ?;
-        `;
+    SELECT 
+      user.name
+    FROM 
+      follower
+      INNER JOIN user 
+      ON follower.following_user_id = user.user_id
+    WHERE 
+      follower.follower_user_id = ?;
+  `;
+
   const followingList = await db.all(getFollowingQuery, [userId]);
   response.send(followingList);
+});
+
+app.get("/user/followers/", authenticateToken, async (request, response) => {
+  const { username } = request;
+
+  const getUserIdQuery = `SELECT * FROM user WHERE username = ?;`;
+  const dbUser = await db.get(getUserIdQuery, [username]);
+
+  const userId = dbUser.user_id;
+  const getFollowersQuery = `
+    SELECT 
+      user.name
+    FROM 
+      follower
+      INNER JOIN user ON follower.follower_user_id = user.user_id
+    WHERE 
+      follower.following_user_id = ?;
+  `;
+
+  const followersList = await db.all(getFollowersQuery, [userId]);
+  response.send(followersList);
 });
